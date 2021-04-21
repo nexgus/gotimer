@@ -70,16 +70,22 @@ func (t *Timer) Pause() bool {
 }
 
 func (t *Timer) Reset(d ...time.Duration) bool {
-	if t.state != stateIdle {
-		if !t.Pause() {
-			return false
-		}
-	}
-
 	if len(d) > 0 {
 		t.initDuration = d[0]
 	}
 	t.duration = t.initDuration
+
+	if t.state == stateExpired {
+		t.state = stateIdle
+		c := make(chan time.Time, 1)
+		t := new(Timer)
+		t.C = c
+		t.c = c
+		t.fn = func() {
+			t.state = stateExpired
+			t.c <- time.Now()
+		}
+	}
 
 	return t.Start()
 }
