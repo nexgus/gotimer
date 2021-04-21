@@ -12,13 +12,14 @@ const (
 // the current time will be sent on C, unless the Timer was created by AfterFunc.
 // A Timer must be created with NewTimer or AfterFunc.
 type Timer struct {
-	C         <-chan time.Time
-	c         chan time.Time
-	duration  time.Duration
-	state     int
-	fn        func()
-	startedAt time.Time
-	t         *time.Timer
+	C            <-chan time.Time
+	c            chan time.Time
+	duration     time.Duration
+	initDuration time.Duration
+	state        int
+	fn           func()
+	startedAt    time.Time
+	t            *time.Timer
 }
 
 // AfterFunc waits after calling its Start method for the duration
@@ -44,6 +45,7 @@ func NewTimer(d time.Duration) *Timer {
 	t.C = c
 	t.c = c
 	t.duration = d
+	t.initDuration = d
 	t.fn = func() {
 		t.state = stateExpired
 		t.c <- time.Now()
@@ -62,9 +64,24 @@ func (t *Timer) Pause() bool {
 		return false
 	}
 	t.state = stateIdle
-	dur := time.Now().Sub(t.startedAt)
-	t.duration = t.duration - dur
+	past := time.Since(t.startedAt)
+	t.duration = t.duration - past
 	return true
+}
+
+func (t *Timer) Reset(d ...time.Duration) bool {
+	if t.state != stateIdle {
+		if !t.Pause() {
+			return false
+		}
+	}
+
+	if len(d) > 0 {
+		t.initDuration = d[0]
+	}
+	t.duration = t.initDuration
+
+	return t.Start()
 }
 
 // Start starts Timer that will send the current time on its channel after at least duration d.
